@@ -24,7 +24,7 @@ let callVoiceId;
 let retrycount = 0;
 let ttsPlayVoice = 'female';
 const sseMsg = [];
-const servicePort = 3000;//process.argv[2];//process.env.SERVICE_PORT || 3000;
+const servicePort = process.env.SERVICE_PORT || 3000;
 
 // shutdown the node server forcefully
 function shutdown() {
