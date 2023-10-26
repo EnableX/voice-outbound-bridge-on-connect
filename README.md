@@ -1,4 +1,4 @@
-# **Basic Client Examples to demonstrate Outbound Calls with call bridging using Enablex Voice APIs. **
+# Outbound Calls with Call Bridging: Using EnableX Programmable Voice APIs
 This example contains instructions how users can initiate Outbound Calls and bridge the call to another number.
 
 
