@@ -1,8 +1,11 @@
-{
+﻿{
   "name": "enablexoutboundclient",
   "version": "1.0.0",
   "description": "Enablex Outbound Client Example",
-  "main": "client-outbound.js",
+  "main": "client.js",
+  "scripts": {
+    "start": "node client.js"
+  },
   "author": "amit.s",
   "license": "ISC",
   "dependencies": {

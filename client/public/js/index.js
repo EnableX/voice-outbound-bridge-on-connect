@@ -1,70 +1,49 @@
-/// ////////////////////////////////////////////////////
-//
-// This is application file which accept some inputs to start a EnableX voice call
-//
-/// //////////////////////////////////////////////////
-
-// eslint-disable-next-line func-names
-window.onload = function () {
-  // eslint-disable-next-line no-undef
-  $('.voice_call_div').show();
-};
-
-// toastr library options
-// eslint-disable-next-line no-undef
 toastr.options = {
-  closeButton: false,
-  debug: false,
-  newestOnTop: false,
-  progressBar: false,
+  closeButton: true,
+  progressBar: true,
   positionClass: 'toast-top-right',
-  preventDuplicates: false,
-  onclick: null,
-  showDuration: '300',
-  hideDuration: '1000',
   timeOut: '5000',
-  extendedTimeOut: '1000',
-  showEasing: 'swing',
-  hideEasing: 'linear',
   showMethod: 'fadeIn',
   hideMethod: 'fadeOut',
 };
 
-// make an ajax request to API to start a voice call
-// It accepts the payload for the request
-function makeCall(details, callback) {
-  const xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function () {
-    if (this.readyState === 4 && this.status >= 200) {
-      // const response = JSON.parse(this.responseText);
-      const response = this.responseText;
-      if (response.state === 'failed') {
-        // eslint-disable-next-line no-undef
-        toastr.error(response.state);
-      } else {
-        callback(response);
-      }
-    }
-  };
-  xhttp.open('POST', './outbound-call/', true);
-  xhttp.setRequestHeader('Content-Type', 'application/json');
-  xhttp.send(JSON.stringify(details));
-}
-
-//
-document.getElementById('voice_call_form').addEventListener('submit', (event) => {
+document.getElementById('voice_call_form').addEventListener('submit', function (event) {
   event.preventDefault();
 
-  const retData = {
-    from: document.getElementById('fromNumber').value,
-    to: document.getElementById('toNumber').value,
-    play_text: document.getElementById('promptMessage').value,
-    play_voice: document.getElementById('voice').value,
+  var from = document.getElementById('fromNumber').value.trim();
+  var to = document.getElementById('toNumber').value.trim();
+  var bridgeTo = document.getElementById('bridgeToNumber').value.trim();
+  var msgEl = document.getElementById('message');
+  var callBtn = document.getElementById('callBtn');
+
+  if (!from || !to || !bridgeTo) {
+    msgEl.textContent = 'All three number fields are required.';
+    return;
+  }
+
+  msgEl.textContent = '';
+  callBtn.disabled = true;
+  callBtn.textContent = 'Dialing…';
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function () {
+    if (this.readyState !== 4) return;
+
+    callBtn.disabled = false;
+    callBtn.innerHTML = '<span class="fa fa-phone"></span>&nbsp; Start Call';
+
+    if (this.status === 200) {
+      var resp = JSON.parse(this.responseText);
+      toastr.success('Call initiated! Voice ID: ' + resp.voice_id);
+    } else {
+      var err = this.responseText;
+      try { err = JSON.parse(err).error || err; } catch (e) {}
+      toastr.error('Failed to start call: ' + err);
+      msgEl.textContent = 'Error: ' + err;
+    }
   };
 
-  // console.log(JSON.stringify(retData));
-
-  makeCall(retData, (response) => {
-    console.log(response);
-  });
+  xhttp.open('POST', './outbound-call/', true);
+  xhttp.setRequestHeader('Content-Type', 'application/json');
+  xhttp.send(JSON.stringify({ from: from, to: to, bridge_to: bridgeTo }));
 });

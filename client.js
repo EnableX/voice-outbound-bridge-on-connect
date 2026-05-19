@@ -1,53 +1,41 @@
-// core modules
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
-// modules installed from npm
 const { EventEmitter } = require('events');
 const express = require('express');
 const bodyParser = require('body-parser');
 const { createDecipher } = require('crypto');
 require('dotenv').config();
 const _ = require('lodash');
-// application modules
 const logger = require('./logger');
-const {
-  ivrVoiceCall, makeOutboundCall, hangupCall,bridgeCall,
-} = require('./voiceapi');
+const { makeOutboundCall, hangupCall } = require('./voiceapi');
 
-// Express app setup
 const app = express();
 const eventEmitter = new EventEmitter();
 
 let server;
 let callVoiceId;
-let retrycount = 0;
-let ttsPlayVoice = 'female';
 const sseMsg = [];
 const servicePort = process.env.SERVICE_PORT || 3000;
 
-// shutdown the node server forcefully
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.static('client'));
+
 function shutdown() {
   server.close(() => {
     logger.error('Shutting down the server');
     process.exit(0);
   });
-  setTimeout(() => {
-    process.exit(1);
-  }, 10000);
+  setTimeout(() => { process.exit(1); }, 10000);
 }
 
-// Set webhook event url
 function onListening() {
   console.log(`Listening on Port ${servicePort}`);
 }
 
-// Handle error generated while creating / starting an http server
 function onError(error) {
-  if (error.syscall !== 'listen') {
-    throw error;
-  }
-
+  if (error.syscall !== 'listen') throw error;
   switch (error.code) {
     case 'EACCES':
       logger.error(`Port ${servicePort} requires elevated privileges`);
@@ -62,8 +50,6 @@ function onError(error) {
   }
 }
 
-// create and start an HTTPS node app server
-// An SSL Certificate (Self Signed or Registered) is required
 function createAppServer() {
   if (process.env.LISTEN_SSL !== 'false') {
     const options = {
@@ -71,13 +57,10 @@ function createAppServer() {
       cert: fs.readFileSync(process.env.CERTIFICATE_SSL_CERT).toString(),
     };
     if (process.env.CERTIFICATE_SSL_CACERTS) {
-      options.ca = [];
-      options.ca.push(fs.readFileSync(process.env.CERTIFICATE_SSL_CACERTS).toString());
+      options.ca = [fs.readFileSync(process.env.CERTIFICATE_SSL_CACERTS).toString()];
     }
-    // Create https express server
     server = https.createServer(options, app);
   } else {
-    // Create http express server
     server = http.createServer(app);
   }
   app.set('port', servicePort);
@@ -86,23 +69,6 @@ function createAppServer() {
   server.on('listening', onListening);
 }
 
-/* Initializing WebServer */
-/*if (process.env.ENABLEX_APP_ID && process.env.ENABLEX_APP_KEY) {
-  createAppServer();
-} else {
-  logger.error('Please set env variables - ENABLEX_APP_ID, ENABLEX_APP_KEY');
-}
-
-process.on('SIGINT', () => {
-  console.log('Caught interrupt signal');
-  shutdown();
-});
-*/
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.static('client'));
-
-// outbound voice call
 if (process.env.ENABLEX_APP_ID && process.env.ENABLEX_APP_KEY) {
   createAppServer();
 } else {
@@ -114,24 +80,27 @@ process.on('SIGINT', () => {
   shutdown();
 });
 
-let body = {
-  "from" :`${process.env.FROM}`,
-  "to" : `${process.env.TO}`,
-  "play_text" : `${process.env.TEXT}`,
-  "play_voice":`${process.env.VOICE}`,
-  "play_language" : `${process.env.LANGUAGE}`,
-  "prompt_ref" : `${process.env.PROMPT_REF}`
-} 
+// POST /outbound-call/ — initiates a bridged outbound call from the UI form
+app.post('/outbound-call/', (req, res) => {
+  const { from, to, bridge_to } = req.body;
 
-/* Initiating Outbound Call */
-makeOutboundCall(body, (response) => {
-  const msg = JSON.parse(response);
-  // set voice_id to be used throughout
-  callVoiceId = msg.voice_id;
-  console.log(`Voice Id of the Call ${callVoiceId}`);
+  if (!from || !to || !bridge_to) {
+    return res.status(400).json({ error: 'from, to, and bridge_to are required' });
+  }
+
+  makeOutboundCall({ from, to, bridge_to }, (response) => {
+    const msg = JSON.parse(response);
+    if (msg.voice_id) {
+      callVoiceId = msg.voice_id;
+      console.log(`Call initiated. Voice ID: ${callVoiceId}`);
+      return res.status(200).json({ voice_id: callVoiceId, status: 'initiated' });
+    }
+    logger.error(`Failed to initiate call: ${response}`);
+    return res.status(500).json({ error: 'Failed to initiate call', detail: msg });
+  });
 });
 
-// It will send stream / events all the events received from webhook to the client
+// GET /event-stream — SSE endpoint streaming call events to the browser
 app.get('/event-stream', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -140,19 +109,17 @@ app.get('/event-stream', (req, res) => {
   });
 
   const id = (new Date()).toLocaleTimeString();
-
-  setInterval(() => {
+  const interval = setInterval(() => {
     if (!_.isEmpty(sseMsg[0])) {
-      const data = `${sseMsg[0]}`;
       res.write(`id: ${id}\n`);
-      res.write(`data: ${data}\n\n`);
-      sseMsg.pop();
+      res.write(`data: ${sseMsg.shift()}\n\n`);
     }
   }, 100);
+
+  req.on('close', () => clearInterval(interval));
 });
 
-// Webhook event which will be called by EnableX server once an outbound call is made
-// It should be publicly accessible. Please refer document for webhook security.
+// POST /event — webhook called by EnableX on call state changes
 app.post('/event', (req, res) => {
   let jsonObj;
   if (req.headers['x-algoritm'] !== undefined) {
@@ -160,46 +127,37 @@ app.post('/event', (req, res) => {
     let decryptedData = key.update(req.body.encrypted_data, req.headers['x-format'], req.headers['x-encoding']);
     decryptedData += key.final(req.headers['x-encoding']);
     jsonObj = JSON.parse(decryptedData);
-    console.log('Response from webhook');
-    console.log(JSON.stringify(jsonObj));
   } else {
     jsonObj = req.body;
-    console.log(JSON.stringify(jsonObj));
   }
-
-  res.send();
-  res.status(200);
+  console.log('Webhook event:', JSON.stringify(jsonObj));
+  res.sendStatus(200);
+  sseMsg.push('__WEBHOOK__:' + JSON.stringify(jsonObj));
   eventEmitter.emit('voicestateevent', jsonObj);
 });
 
-// Call is completed / disconneted, inform server to hangup the call
-function timeOutHandler(voice_id) {
-  console.log(`[${voice_id}] Disconnecting the call`);
-  hangupCall(voice_id, () => {});
+function timeOutHandler(voiceId) {
+  console.log(`[${voiceId}] Disconnecting call`);
+  hangupCall(voiceId, () => {});
 }
 
-/* WebHook Event Handler function */
 function voiceEventHandler(voiceEvent) {
-  console.log("Voice Event Received : " + JSON.stringify(voiceEvent));
-  if (voiceEvent.state) {
-    if (voiceEvent.state === 'connected') {
-      const eventMsg = 'Outbound Call is connected';
-      console.log(`[${callVoiceId}] ${eventMsg}`);
-      sseMsg.push(eventMsg);
-    } else if (voiceEvent.state === 'disconnected') {
-      const eventMsg = 'Outbound Call is disconnected';
-      console.log(`[${callVoiceId}] ${eventMsg}`);
-      sseMsg.push(eventMsg);
-    }
+  console.log('Voice event:', JSON.stringify(voiceEvent));
+
+  if (voiceEvent.state === 'connected') {
+    const msg = `Call connected — bridging to ${voiceEvent.voice_id}`;
+    console.log(msg);
+    sseMsg.push(msg);
+  } else if (voiceEvent.state === 'disconnected') {
+    const msg = 'Call disconnected';
+    console.log(msg);
+    sseMsg.push(msg);
   }
 
-  if (voiceEvent.playstate !== undefined) {
-    if (voiceEvent.playstate === 'playfinished') {
-      console.log ("["+callVoiceId+"] Play Finished . Disconnect the call after 5 seconds ");
-      setTimeout(timeOutHandler, 5000,voiceEvent.voice_id);
-    }
+  if (voiceEvent.playstate === 'playfinished') {
+    console.log(`[${callVoiceId}] Play finished — disconnecting in 5s`);
+    setTimeout(timeOutHandler, 5000, voiceEvent.voice_id);
   }
 }
 
-/* Registering WebHook Event Handler function */
 eventEmitter.on('voicestateevent', voiceEventHandler);

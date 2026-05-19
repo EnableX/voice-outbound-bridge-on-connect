@@ -3,14 +3,12 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="description" content="EnableX Voice Service">
+  <meta name="description" content="EnableX Voice Bridge Sample">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>Sample App: Make an outbound call using EnableX Voice Service</title>
+  <title>EnableX Voice — Outbound Call Bridge</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css"
     integrity="sha256-h20CPZ0QyXlBuAw7A+KluUYx/3pK+c7lYEpqLTlxjYQ=" crossorigin="anonymous" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/fontawesome.min.css"
-    integrity="sha256-CuUPKpitgFmSNQuPDL5cEfPOOJT/+bwUlhfumDJ9CI4=" crossorigin="anonymous" />
   <link rel="shortcut icon" type="image/ico" href="./public/img/favicon.ico" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.0/css/bootstrap.min.css"
     integrity="sha256-aAr2Zpq8MZ+YA/D6JtRD3xtrwpEz2IqOS+pWD/7XKIw=" crossorigin="anonymous" />
@@ -21,8 +19,7 @@
 
 <body>
   <header>
-    <!-- =================================================== Nav section ============================-->
-    <div id="app" class="container">
+    <div class="container">
       <nav class="navbar navbar-expand-lg navbar-light">
         <a class="navbar-brand" href="https://www.enablex.io/">
           <img src="./public/img/enableX_logo.png" alt="EnableX">
@@ -30,88 +27,132 @@
         <div class="navbar-collapse collapse nav justify-content-end">
           <ul class="nav justify-content-end ton-hedr-nav">
             <li class="nav-item">
-              <a class="nav-link login">Sample Code <span class='fa fa-code'></span></a>
+              <a class="nav-link login">Sample Code <span class="fa fa-code"></span></a>
             </li>
           </ul>
         </div>
       </nav>
     </div>
   </header>
-  <div class="container">
-    <div class="row d-flex justify-content-center align-items-baseline">
-      <div class="col-12 col-md-12 col-xl-6 col-lg-6">
-        <div class="form-bg" class="voice_call_div" style="display: block;">
-          <h1 class="text-center">Start a Voice Call</h1>
-          <form class="mt-4" id="voice_call_form">
-            <div class="form-row">
-              <div class="form-group col-12">
-                <input type="text" class="form-control" id="fromNumber" name="fromNumber" placeholder="From Number" required>
-                <small id="fromNumberHelp" class="form-text text-muted">The Calling Line Identity assigned
-                  on the outbound number and configured <a
-                    href="https://portal.enablex.io/projects/dashboard/voice/phone-numbers/">Here</a>.
-                  <br />Example - <b>911234567890</b> (without +)</small>
-              </div>
+
+  <!-- ===== Setup Guide ===== -->
+  <div class="container mt-3">
+    <div class="setup-guide">
+      <button class="setup-guide-toggle" data-toggle="collapse" data-target="#setupGuide" aria-expanded="false">
+        <span class="fa fa-info-circle mr-2"></span>Setup Guide — How to run this sample
+        <span class="fa fa-chevron-down toggle-icon ml-auto"></span>
+      </button>
+      <div id="setupGuide" class="collapse">
+        <div class="setup-steps">
+          <div class="setup-step">
+            <div class="step-number">1</div>
+            <div class="step-body">
+              <h6>Install dependencies</h6>
+              <code>npm install</code>
             </div>
-            <div class="form-row">
-              <div class="form-group col-12">
-                <input type="text" class="form-control" id="toNumber" name="toNumber" placeholder="To Number" required>
-                <small id="toNumberHelp" class="form-text text-muted">Destination number. Should be
-                  formatted with a country code (91 for India, 1 for US etc.). <br />Example -
-                  <b>911234567890</b> (without +)</small>
-              </div>
+          </div>
+          <div class="step-divider"></div>
+          <div class="setup-step">
+            <div class="step-number">2</div>
+            <div class="step-body">
+              <h6>Configure credentials</h6>
+              <code>cp env-example .env</code>
+              <p>Edit <strong>.env</strong> and fill in <strong>ENABLEX_APP_ID</strong>, <strong>ENABLEX_APP_KEY</strong>, and set <strong>LISTEN_SSL=false</strong>.</p>
             </div>
-            <div class="form-row">
-              <div class="form-group col-md-12">
-                <select class="selectpicker show-menu-arrow form-control" id="voice" name="voice" required>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                </select>
-                <small id="languageHelp" class="form-text text-muted">The preferred spoken voice for
-                  TTS.</small>
-              </div>
+          </div>
+          <div class="step-divider"></div>
+          <div class="setup-step">
+            <div class="step-number">3</div>
+            <div class="step-body">
+              <h6>Create an ngrok tunnel</h6>
+              <code>ngrok http 3000</code>
+              <p>Copy the <strong>https://…ngrok.io</strong> URL and set it as <strong>PUBLIC_WEBHOOK_URL</strong> in <strong>.env</strong>.</p>
             </div>
-            <div class="form-row">
-              <div class="form-group col-12">
-                <textarea id="promptMessage" name="promptMessage" class="md-textarea form-control" rows="3"></textarea>
-                <label for="form7">What would you like to hear as greeting?</label>
-                <small id="promptMessageHelp" class="form-text text-muted">TTS (Text to speech) to play at
-                  the prompt. <br />Example - <b>This is a sample message for testing EnableX voice
-                    call</b>.</small>
-              </div>
+          </div>
+          <div class="step-divider"></div>
+          <div class="setup-step">
+            <div class="step-number">4</div>
+            <div class="step-body">
+              <h6>Start the server</h6>
+              <code>npm start</code>
+              <p>Open <strong>http://localhost:3000</strong> and use the form below to place a call.</p>
             </div>
-            <div class="form-row">
-              <div class="form-group col-md-12">
-                <input type="checkbox" name="agree" style="height: 15px;width:15px;" checked>
-                <label>I
-                  agree to <a target="_blank" href="https://www.enablex.io/legals/tou/">Terms of
-                    Use</a> and <a target="_blank" href="https://www.enablex.io/legals/privacy-policy/">Privacy
-                    Policy</a>
-                </label>
-              </div>
-            </div>
-            <div class="form-row justify-content-start">
-              <div class="form-group col-12 checkbox-sec">
-                <div>
-                  <div>
-                    <input type="submit" value="Call" class="btn btn-primary" id="joinRoom">
-                  </div>
-                  <br>
-                  <span id="message" style="color: red"></span>
-                </div>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div class="col-12 col-md-12 col-xl-6 col-lg-6">
-        <div class="form-bg" class="voice_call_div" style="display: block;">
-          <h3 class="text-left">List of actions when call started:</h3>
-          <ul id="myList">
-          </ul>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+  <div class="container">
+    <div class="row d-flex justify-content-center align-items-baseline">
+
+      <!-- Call Form -->
+      <div class="col-12 col-md-12 col-xl-6 col-lg-6">
+        <div class="form-bg">
+          <h1 class="section-title">Outbound Call Bridge</h1>
+          <p class="text-center text-muted">Places an outbound call and bridges it to a third party on connect.</p>
+          <form class="mt-4" id="voice_call_form">
+
+            <div class="form-group">
+              <input type="text" class="form-control" id="fromNumber" name="fromNumber"
+                placeholder="From Number (Caller ID)" required>
+              <small class="form-text text-muted">
+                Virtual number assigned to your EnableX project.
+                <br>Example: <b>911234567890</b> (no + prefix)
+              </small>
+            </div>
+
+            <div class="form-group">
+              <input type="text" class="form-control" id="toNumber" name="toNumber"
+                placeholder="To Number (Called Party)" required>
+              <small class="form-text text-muted">
+                Destination number to dial first.
+                <br>Example: <b>911234567890</b> (no + prefix)
+              </small>
+            </div>
+
+            <div class="form-group">
+              <input type="text" class="form-control" id="bridgeToNumber" name="bridgeToNumber"
+                placeholder="Bridge To Number (Agent / Third Party)" required>
+              <small class="form-text text-muted">
+                Number to bridge the call to once the called party answers.
+                <br>Example: <b>911234567890</b> (no + prefix)
+              </small>
+            </div>
+
+            <div class="form-group">
+              <input type="checkbox" name="agree" style="accent-color:var(--brand)" checked>
+              <label>
+                I agree to
+                <a target="_blank" href="https://www.enablex.io/legals/tou/">Terms of Use</a>
+                and
+                <a target="_blank" href="https://www.enablex.io/legals/privacy-policy/">Privacy Policy</a>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <button type="submit" class="btn btn-primary btn-block" id="callBtn">
+                <span class="fa fa-phone"></span>&nbsp; Start Call
+              </button>
+              <span id="message" class="error-message"></span>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      <!-- Event Log -->
+      <div class="col-12 col-md-12 col-xl-6 col-lg-6">
+        <div class="form-bg">
+          <h3 class="section-title"><span class="fa fa-stream mr-2 text-brand"></span>Call Events</h3>
+          <p class="events-empty-msg" id="eventsEmpty"><span class="fa fa-clock mr-1"></span>Events will appear here once a call starts.</p>
+          <ul id="eventList" class="events-list" style="padding-left:1.2em;"></ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <footer>
     <div class="container">
       <div class="row">
@@ -122,11 +163,12 @@
           </ul>
         </div>
         <div class="col-12 col-md-6">
-          <p class="footer-p">Copyright © VCLOUDX PTE LTD. All rights reserved.</p>
+          <p class="footer-p">Copyright &copy; VCLOUDX PTE LTD. All rights reserved.</p>
         </div>
       </div>
     </div>
   </footer>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"
     integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.0/js/bootstrap.min.js"
@@ -134,30 +176,49 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js"
     integrity="sha256-yNbKY1y6h2rbVcQtf0b8lq4a+xpktyFc3pSYoGAY1qQ=" crossorigin="anonymous"></script>
   <script type="text/javascript" src="./public/js/index.js"></script>
-  <script>
 
-    if (!!window.EventSource) {
+  <script>
+    function appendWebhookEvent(rawJson, containerEl) {
+      var formatted;
+      try { formatted = JSON.stringify(JSON.parse(rawJson), null, 2); } catch(_) { formatted = rawJson; }
+      var safe = formatted.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      var ts = new Date().toLocaleTimeString();
+      var li = document.createElement('li');
+      li.style.cssText = 'padding:6px 0;border-bottom:1px solid #f0f0f0;list-style:none;';
+      li.innerHTML = '<span style="color:#999;font-size:0.72rem;margin-right:6px;">' + ts + '</span>'
+        + '<details>'
+        + '<summary style="cursor:pointer;color:#0057b8;font-size:0.8rem;font-weight:600;display:inline;">&#x2691; Webhook Event</summary>'
+        + '<pre style="background:#f4f6f9;border:1px solid #dde;padding:8px 10px;border-radius:4px;font-size:0.7rem;max-height:200px;overflow:auto;margin-top:6px;white-space:pre-wrap;word-break:break-all;">' + safe + '</pre>'
+        + '</details>';
+      containerEl.appendChild(li);
+      containerEl.scrollTop = containerEl.scrollHeight;
+    }
+
+    // Server-Sent Events — stream call events into the event log
+    if (window.EventSource) {
       var evtSource = new EventSource('/event-stream');
-      var eventList = document.getElementById("myList");
+      var eventList = document.getElementById('eventList');
 
       evtSource.onopen = function () {
-        console.log("Connection to server opened.");
+        console.log('SSE connection opened');
       };
 
-      evtSource.onevent
-
       evtSource.onmessage = function (e) {
-        var newElement = document.createElement("li");
-
-        newElement.textContent = e.data + "\n\n";
-        eventList.appendChild(newElement);
+        var _ep = document.getElementById('eventsEmpty'); if (_ep) _ep.style.display = 'none';
+        if (e.data.startsWith('__WEBHOOK__:')) {
+          appendWebhookEvent(e.data.slice('__WEBHOOK__:'.length), eventList);
+          return;
+        }
+        var li = document.createElement('li');
+        li.textContent = new Date().toLocaleTimeString() + ' — ' + e.data;
+        eventList.appendChild(li);
       };
 
       evtSource.onerror = function () {
-        console.log("EventSource failed.");
+        console.warn('SSE connection error');
       };
     } else {
-      alert('EventSource is not supported to this browser');
+      alert('Your browser does not support Server-Sent Events.');
     }
   </script>
 </body>
